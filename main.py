@@ -5,9 +5,16 @@ import numpy as np
 import tempfile
 import streamlit as st
 import io
+import yfinance as yf
+import pandas as pd
+import datetime
+import time
+import pandas_datareader.data as web
+
+
 
 uploaded_file = st.file_uploader(...)
-text.io = io.TestIOWrapper(uploaded_file)
+
 
 conn = None
 db = st.file_uploader("stock.db", type="db")
@@ -94,6 +101,43 @@ if conn:
                         row['company_name'],
                         int(row['now_price'])
                     ))
+
+
+ticker = 'AAPL', 'TSLA'
+
+def make_connection(db_file):
+    """ create a database connection to the SQLite database
+        specified by the db file
+        :param db_file: database file
+        :return: Connection object or None
+    """
+
+    conn = None
+    try:
+        conn = sqlite3.connect(db_file)
+    except Error as e:
+        print(e)
+    return conn
+
+
+    start_time = datetime.datetime(2019, 9, 1)
+    end_time = datetime.datetime.now().date().isoformat()
+
+    connected = False
+    while not connected:
+        try:
+            df = web.get_data_yahoo(ticker, start=start_time, end=end_time)
+            connected = True
+            print('connected to yahoo')
+        except Exception as e:
+            print("type error: " + str(e))
+            time.sleep(3)
+            pass
+
+
+
+
+
 
 
 
