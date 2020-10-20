@@ -7,6 +7,13 @@ from typing import List
 from sqlite3 import Connection
 from datetime import datetime, timedelta
 import yfinance as yf
+import sqlalchemy
+import pandas_datareader.data as web
+import requests
+import plotly.figure_factory as ff
+import plotly.graph_objects as go
+import numpy as np
+
 
 Stock_sqlite_db = "stock.db"
 
@@ -24,7 +31,7 @@ def memoize(func):
 
 def main():
     st.title('stock analysis')
-    st.markdown("Enter company name in databse from sidebar, then run the app.")
+    st.markdown("Search the history of the companies' stock data easily.")
 
     conn = get_connection(Stock_sqlite_db)
     conn = get_connection(Stock_sqlite_db)
@@ -36,29 +43,16 @@ def main():
     conn = get_connection(Stock_sqlite_db)
     #init_db(conn)
 
-    build_sidebar(conn)
     display_data(conn)
 
-def build_sidebar(conn: Connection):
-    st.sidebar.header("Configuration")
-    input1 = st.sidebar.slider("company_name", 0, 51)
-    input2 = st.sidebar.slider("Price", 0, 51)
-
-    input1 = input2
-
-    if st.sidebar.button("Save"):
-        conn.execute("INSERT INTO stock (input1, input2) VALUES ({input1}, {input2})")
-        conn.commit()
 
 
 def display_data(conn: Connection):
     if st.checkbox("Display data in sqlite database"):
         #st.dataframe(get_data(conn))
-        st.dataframe(get_data_demo([1,2,3]))
-    val = st.text_input(label="input params")
-    val = st.selectbox(
-        "How would you like to be contacted?",
-        ("Apple (AAPL)", "Tesla (TSLA)", "Mobile phone")
+        st.dataframe(get_data_demo(['AAPL', 'TSLA', 'BRK-B', 'DIS', 'AMZN', 'WMT', 'COST', 'AMAT']))
+    val = st.selectbox("How would you like to be contacted?",
+        ("Apple (AAPL)", "Tesla (TSLA)", "Berkshire Hathaway (BRK-B)", "Walt Disney (DIS)", "Amazon (AMZN)", "Walmart (WMT)", "Costco (COST)", "Applied Materials (AMAT)")
     )
     val = val.split('(')[1][:-1]
     df = get_price(conn, val)
@@ -104,6 +98,45 @@ def get_connection(path: str):
     print('create connection')
     return sqlite3.connect(path, check_same_thread=False)
 
+# Set sample stock symbol to instrument variable
+
+symbol = st.text_input('Enter Stock Symbol', 'QQQ')
+
+API_URL = "https://www.alphavantage.co/query"
+
+data = { "function": "TIME_SERIES_DAILY",
+    "symbol": symbol,
+    "outputsize" : "compact",
+    "datatype": "json",
+    "apikey": "XXXXXXXXXXXX" } #ENTER YOUR ALPHAVANTAGE KEY HERE
+
+#https://www.alphavantage.co/query/
+response = requests.get(API_URL, data).json()
+
+data = pd.DataFrame.from_dict(response['Time Series (Daily)'], orient= 'index').sort_index(axis=1)
+data = data.rename(columns={ '1. open': 'Open', '2. high': 'High', '3. low': 'Low', '4. close': 'Close', '5. volume': 'Volume'})
+data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
+data['Date'] = data.index
+
+fig = go.Figure(data=[go.Candlestick(x=data['Date'],
+                open=data['Open'],
+                high=data['High'],
+                low=data['Low'],
+                close=data['Close'],
+                name=symbol)])
+
+fig.update_layout(
+    title=symbol+ ' Daily Chart',
+    xaxis_title="Date",
+    yaxis_title="Price ($)",
+    font=dict(
+        family="Courier New, monospace",
+        size=12,
+        color="black"
+    )
+)
+
+st.plotly_chart(fig,  use_container_width=True)
 
 if __name__ == "__main__":
     main()

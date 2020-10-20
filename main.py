@@ -10,6 +10,8 @@ import pandas as pd
 import datetime
 import time
 import pandas_datareader.data as web
+import sqlalchemy
+from datetime import datetime, timedelta
 
 
 
@@ -134,7 +136,57 @@ def make_connection(db_file):
             time.sleep(3)
             pass
 
+con = sqlalchemy.create_engine('sqlite"///stock.db')
+con.execute('''DROP TABLE stock_hist''')
+pd.read_sql_table('stock', con)
 
+con.execute('''
+CREATE TABLE stock_hist(
+date TIMESTAMP,
+company VARCHAR(100),
+high INTEGER,
+low INTEGER,
+open INTEGER,
+close INTEGER,
+volume INTEGER,
+adjclose INTEGER,
+PRIMARY KEY (date, company)
+''')
+
+
+companies = ['AAPL', 'TSLA', 'BRK-B', 'DIS', 'AMZN', 'WMT', 'COST', 'AMAT']
+end = datetime.now()
+start = end - timedelta(days=365)
+
+df = web.get_data_yahoo(companies, start=start, end=end)
+
+for date, item in df.iterrows():
+    for company in companies:
+        high = item.High[company]
+        low = item.Low[company]
+        open_val = item.Open[company]
+        close = item.Close[company]
+        volume = item.Volume[company]
+        adjclose = item['Adj Close'][company]
+
+        try:
+            con.execute('''
+            INSERT INTO stock_hist(date, company, high, low, open, close, volume, adjclose)
+            values(:date, :company, :high, :low, :open, :close, :volume, :adjclose)
+            ''', dict(
+                date = date.to_pydatetime(),
+                company=company,
+                high=high,
+                low=low,
+                open=open_val,
+                close=close,
+                volume=volume,
+                adjclose=adjclose
+
+
+            ))
+        except sqlalchemy.exc.IntegerityError as e:
+            pass
 
 
 
